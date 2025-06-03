@@ -4,13 +4,16 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os # Dosya ve klasör işlemleri için eklendi
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+# Türkçe Yorum: Bu dosya, LOL şampiyon verilerini analiz etmek ve makine öğrenimi modelleri oluşturmak için kullanılacaktır.
 # Machine learning modules
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler, OneHotEncoder, LabelEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-
+from sklearn.utils.multiclass import unique_labels
 # Example models
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LinearRegression
@@ -82,9 +85,9 @@ print("\nNumber of Missing Values in Columns:")
 print(df.isnull().sum())
 
 # --- Placeholder for Target Variable Identification ---
-# Türkçe Yorum: Tahmin etmeye çalışacağınız hedef değişkeni (sütun adı) ve problem tipini (classification/regression) tanımlayın.
-target_column = None  # Example: 'Role', 'Class', 'HP', 'AttackDamage'
-problem_type = None # 'classification' or 'regression' # Example: 'classification'
+# Türkçe Yorum: Tahmin etmeye çalışacağınız 
+target_column ='Role' #None   Example: 'Role', 'Class', 'HP', 'AttackDamage'
+problem_type = 'classification'    #None  'classification' or 'regression' # Example: 'classification'
 
 # --- 2. Exploratory Data Analysis (EDA) ---
 print("\n--- 2. Exploratory Data Analysis (EDA) ---")
@@ -203,6 +206,7 @@ if target_column and target_column in df_processed.columns and df_processed[targ
         print(f"Filled missing target values in '{target_column}' with mode.")
     
 
+# Check if target_column is defined and exists in the DataFrame
 if target_column and target_column in df_processed.columns:
     X = df_processed.drop(target_column, axis=1)
     y = df_processed[target_column]
@@ -210,11 +214,25 @@ if target_column and target_column in df_processed.columns:
     if problem_type == 'classification' and y.dtype == 'object':
         label_encoder = LabelEncoder()
         y = label_encoder.fit_transform(y)
+        y = pd.Series(y)  # Convert to Series for stratify compatibility
+
+        # Remove rare classes with <2 samples (stratify can't handle these)
+        class_counts = y.value_counts()
+        rare_classes = class_counts[class_counts < 2].index
+        if len(rare_classes) > 0:
+            print(f"Removing classes with <2 samples: {list(rare_classes)}")
+            mask = ~y.isin(rare_classes)
+            X = X[mask]
+            y = y[mask]
+            y = y.reset_index(drop=True)
+            X = X.reset_index(drop=True)
+
         print(f"\nTarget variable '{target_column}' encoded. Classes: {list(label_encoder.classes_)}")
 else:
     print(f"ERROR: Target column '{target_column}' not defined or not found. Model training will be skipped.")
     X, y = None, None
 
+# --- Preprocessing Pipelines ---
 if X is not None:
     # Update feature lists based on X after dropping target
     numerical_features_in_X = X.select_dtypes(include=np.number).columns.tolist()
@@ -226,7 +244,7 @@ if X is not None:
     ])
     categorical_pipeline = Pipeline(steps=[
         ('imputer', SimpleImputer(strategy='most_frequent')),
-        ('onehot', OneHotEncoder(handle_unknown='ignore', drop='first', sparse_output=False)) # sparse_output=False for easier inspection if needed
+        ('onehot', OneHotEncoder(handle_unknown='ignore', drop='first', sparse_output=False))
     ])
     preprocessor = ColumnTransformer(
         transformers=[
@@ -240,9 +258,12 @@ if X is not None:
 # --- 4. Splitting Data ---
 if X is not None and y is not None:
     print("\n--- 4. Splitting Data into Training and Test Sets ---")
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=(y if problem_type == 'classification' and pd.Series(y).nunique() > 1 else None))
+    stratify_y = y if problem_type == 'classification' and y.nunique() > 1 else None
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=stratify_y
+    )
     print(f"Training set size: {X_train.shape[0]} samples, Test set size: {X_test.shape[0]} samples")
-
+# Türkçe Yorum: Eğer target_column tanımlı değilse veya bulunamazsa, X ve y None olarak ayarlanır.
 # --- 5. Model Training ---
 if X is not None and y is not None:
     print("\n--- 5. Defining, Training, and Optimizing Models ---")
@@ -261,7 +282,8 @@ if X is not None and y is not None:
     else:
         print("Problem type not specified. Skipping model training.")
 
-    if model_instance:
+    if model_instance is not None:
+
         full_pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('model', model_instance)])
         cv_folds = 3 if X_train.shape[0] < 1000 else 5
         grid_search = GridSearchCV(full_pipeline, param_grid, cv=cv_folds, scoring=scoring_metric, n_jobs=-1, verbose=1)
@@ -280,34 +302,34 @@ if X is not None and y is not None and 'best_model' in locals() and best_model i
     y_pred = best_model.predict(X_test)
     model_name_for_plot = best_model.named_steps['model'].__class__.__name__
 
-
     if problem_type == 'classification':
+        from sklearn.utils.multiclass import unique_labels
+
         accuracy = accuracy_score(y_test, y_pred)
         print(f"\nAccuracy: {accuracy:.4f}")
         print("\nClassification Report:")
-        target_names_report = None
-        if 'label_encoder' in locals() and hasattr(label_encoder, 'classes_'):
-            try:
-                # Ensure y_test and y_pred are in the original encoded form for report if target_names are used
-                target_names_report = label_encoder.classes_
-            except Exception as e:
-                print(f"Could not get class names from label_encoder: {e}")
-        # print(classification_report(y_test, y_pred, target_names=target_names_report if target_names_report is not None else None))
-        print(classification_report(y_test, y_pred, target_names = [str(cls_name) for cls_name in target_names_report] if target_names_report is not None else None, zero_division=0))
 
+        # Yalnızca testte bulunan etiketleri ve isimleri al
+        labels_in_test = unique_labels(y_test, y_pred)
+        print(classification_report(
+            y_test, y_pred,
+            labels=labels_in_test,
+            target_names=[str(i) for i in labels_in_test],
+            zero_division=0
+        ))
 
         print("\nConfusion Matrix:")
-        cm = confusion_matrix(y_test, y_pred)
-        plt.figure(figsize=(10, 7)) # Adjusted size
+        cm = confusion_matrix(y_test, y_pred, labels=labels_in_test)
+        plt.figure(figsize=(10, 7))
         sns.heatmap(cm, annot=True, fmt='d', cmap="Spectral_r",
-                    xticklabels=target_names_report if target_names_report is not None else 'auto',
-                    yticklabels=target_names_report if target_names_report is not None else 'auto',
-                    annot_kws={"size": 10}) # Adjust annot size
+                    xticklabels=[str(i) for i in labels_in_test],
+                    yticklabels=[str(i) for i in labels_in_test],
+                    annot_kws={"size": 10})
         title = f'Confusion Matrix for {model_name_for_plot}'
         plt.title(title, fontsize=15)
         plt.xlabel('Predicted Label', fontsize=12)
         plt.ylabel('True Label', fontsize=12)
-        save_current_plot(SAVE_DIRECTORY, title) # Grafiği kaydet
+        save_current_plot(SAVE_DIRECTORY, title)
         plt.show()
 
     elif problem_type == 'regression':
@@ -320,18 +342,15 @@ if X is not None and y is not None and 'best_model' in locals() and best_model i
 
         plt.figure(figsize=(10, 6))
         plt.scatter(y_test, y_pred, alpha=0.7, edgecolors='w', linewidth=0.5)
-        min_val = min(np.min(y_test) if isinstance(y_test, np.ndarray) else y_test.min(), np.min(y_pred) if isinstance(y_pred, np.ndarray) else y_pred.min())
-        max_val = max(np.max(y_test) if isinstance(y_test, np.ndarray) else y_test.max(), np.max(y_pred) if isinstance(y_pred, np.ndarray) else y_pred.max())
-
+        min_val = min(np.min(y_test), np.min(y_pred))
+        max_val = max(np.max(y_test), np.max(y_pred))
         plt.plot([min_val, max_val], [min_val, max_val], '--', color='red', lw=2)
         title = f'Actual vs. Predicted Values for {model_name_for_plot}'
         plt.title(title, fontsize=15)
         plt.xlabel('Actual Values', fontsize=12)
         plt.ylabel('Predicted Values', fontsize=12)
         plt.grid(alpha=0.3)
-        save_current_plot(SAVE_DIRECTORY, title) # Grafiği kaydet
+        save_current_plot(SAVE_DIRECTORY, title)
         plt.show()
 else:
     print("\nSkipping model evaluation as model training was not completed, target not set, or 'best_model' not defined.")
-
-print("\n--- Project Code Execution Completed ---")
