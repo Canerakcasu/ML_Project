@@ -27,7 +27,7 @@ plt.style.use('dark_background')
 sns.set_palette("Spectral")
 
 # Türkçe Yorum: Grafiklerin kaydedileceği klasör yolu.
-SAVE_DIRECTORY = r"C:\Users\caner\OneDrive\Desktop\ML_Project\ML_Project\LOL-Champion-Analysis\graps"
+SAVE_DIRECTORY = r"C:\Users\caner\OneDrive\Desktop\ML_Project\ML_Project\LOL-Champion-Analysis\graps" # Kendi dosya yolunuzla değiştirin
 
 # Türkçe Yorum: Grafik kaydetme klasörünü oluştur (eğer yoksa).
 if not os.path.exists(SAVE_DIRECTORY):
@@ -63,7 +63,7 @@ def save_current_plot(directory, plot_title_override=None):
 print("--- 1. Data Loading and Initial Exploration ---")
 # === FILE PATH ===
 # Türkçe Yorum: Kullandığınız CSV dosyasının tam yolunu buraya yazın. Örnekteki gibi mutlak yol kullanmanız önerilir.
-file_path = r"C:\Users\caner\OneDrive\Desktop\ML_Project\ML_Project\LOL-Champion-Analysis\CSV\champions.csv"
+file_path = r"C:\Users\caner\OneDrive\Desktop\ML_Project\ML_Project\LOL-Champion-Analysis\CSV\champions.csv" # Kendi dosya yolunuzla değiştirin
 
 try:
     df = pd.read_csv(file_path)
@@ -85,9 +85,12 @@ print("\nNumber of Missing Values in Columns:")
 print(df.isnull().sum())
 
 # --- Placeholder for Target Variable Identification ---
-# Türkçe Yorum: Tahmin etmeye çalışacağınız 
-target_column ='Role' #None   Example: 'Role', 'Class', 'HP', 'AttackDamage'
-problem_type = 'classification'    #None  'classification' or 'regression' # Example: 'classification'
+# Türkçe Yorum: Tahmin etmeye çalışacağınız hedef değişken ve problem tipi.
+target_column ='Role' # Örnek: 'Role', 'Class', 'HP', 'AttackDamage'
+problem_type = 'classification'  # 'classification' veya 'regression'
+
+# LabelEncoder'ı daha üst bir kapsamda tanımla (Bölüm 6'da kullanılacak)
+label_encoder = None
 
 # --- 2. Exploratory Data Analysis (EDA) ---
 print("\n--- 2. Exploratory Data Analysis (EDA) ---")
@@ -105,7 +108,7 @@ if target_column:
 # Histograms for numerical features
 print("\nDistributions of Numerical Features:")
 for col in numerical_cols:
-    if col in df.columns: # Check if column still exists (e.g. not removed if it was target)
+    if col in df.columns: # Check if column still exists
         plt.figure(figsize=(10, 6))
         sns.histplot(df[col], kde=True, bins=20)
         title = f'Distribution of {col}'
@@ -113,15 +116,14 @@ for col in numerical_cols:
         plt.xlabel(col, fontsize=12)
         plt.ylabel('Frequency', fontsize=12)
         plt.grid(alpha=0.3)
-        save_current_plot(SAVE_DIRECTORY, title) # Grafiği kaydet
+        save_current_plot(SAVE_DIRECTORY, title)
         plt.show()
 
 # Correlation Matrix for numerical features
 if len(numerical_cols) > 1:
     print("\nCorrelation Matrix of Numerical Features:")
-    plt.figure(figsize=(14, 10)) # Increased size for better readability
-    # Include target if numeric for correlation analysis
-    corr_df_cols = numerical_cols[:] # Create a copy
+    plt.figure(figsize=(14, 10))
+    corr_df_cols = numerical_cols[:]
     if target_column and target_column in df.columns and pd.api.types.is_numeric_dtype(df[target_column]):
         corr_df_cols.append(target_column)
 
@@ -129,24 +131,24 @@ if len(numerical_cols) > 1:
 
     if len(valid_numerical_for_corr) > 1:
         correlation_matrix = df[valid_numerical_for_corr].corr()
-        sns.heatmap(correlation_matrix, annot=True, cmap="Spectral", fmt=".2f", linewidths=.5, annot_kws={"size": 8}) # Reduced annot size
+        sns.heatmap(correlation_matrix, annot=True, cmap="Spectral", fmt=".2f", linewidths=.5, annot_kws={"size": 8})
         title = 'Correlation Matrix of Numerical Features'
         plt.title(title, fontsize=15)
-        plt.xticks(rotation=45, ha='right', fontsize=10) # Adjusted font size
-        plt.yticks(rotation=0, fontsize=10) # Adjusted font size
+        plt.xticks(rotation=45, ha='right', fontsize=10)
+        plt.yticks(rotation=0, fontsize=10)
         plt.tight_layout()
-        save_current_plot(SAVE_DIRECTORY, title) # Grafiği kaydet
+        save_current_plot(SAVE_DIRECTORY, title)
         plt.show()
     else:
         print("Not enough valid numerical features to create a correlation matrix.")
 
-# Count plots for categorical features (Improved Readability)
+# Count plots for categorical features
 print("\nDistributions of Categorical Features:")
-MAX_CATEGORIES_TO_PLOT_FULLY = 35 # Bu eşik değerin altındaki kategori sayıları için tüm kategoriler çizilir
-TOP_N_CATEGORIES = 25             # Bu eşik değerin üzerindeyse en sık görülen ilk N kategori çizilir
+MAX_CATEGORIES_TO_PLOT_FULLY = 35
+TOP_N_CATEGORIES = 25
 
 for col in categorical_cols:
-    if col in df.columns: # Check if column still exists
+    if col in df.columns:
         num_unique = df[col].nunique()
         value_counts = df[col].value_counts()
         plot_title = f'Distribution of {col}'
@@ -170,11 +172,10 @@ for col in categorical_cols:
             plt.ylabel(col, fontsize=12)
 
         plt.title(plot_title, fontsize=15)
-        # plt.xticks(rotation=45, ha='right') # For horizontal bar plots, y-axis labels are more critical
-        plt.yticks(fontsize=9) # Adjust y-tick font size for readability
+        plt.yticks(fontsize=9)
         plt.grid(axis='x', alpha=0.3)
         plt.tight_layout()
-        save_current_plot(SAVE_DIRECTORY, plot_title) # Grafiği kaydet
+        save_current_plot(SAVE_DIRECTORY, plot_title)
         plt.show()
 
 
@@ -182,59 +183,61 @@ for col in categorical_cols:
 print("\n--- 3. Data Cleaning and Preprocessing ---")
 df_processed = df.copy()
 
-for col in numerical_cols: # Use the updated numerical_cols (without target)
-    if col in df_processed.columns and df_processed[col].isnull().any(): # Check existence
+# Özelliklerdeki eksik değerleri doldurma
+for col in numerical_cols:
+    if col in df_processed.columns and df_processed[col].isnull().any():
         median_val = df_processed[col].median()
         df_processed[col].fillna(median_val, inplace=True)
         print(f"Filled missing values in numerical feature '{col}' with median ({median_val}).")
 
-for col in categorical_cols: # Use the updated categorical_cols (without target)
-     if col in df_processed.columns and df_processed[col].isnull().any(): # Check existence
+for col in categorical_cols:
+     if col in df_processed.columns and df_processed[col].isnull().any():
         mode_val = df_processed[col].mode()[0]
         df_processed[col].fillna(mode_val, inplace=True)
         print(f"Filled missing values in categorical feature '{col}' with mode ('{mode_val}').")
 
+# Hedef değişkendeki eksik değerleri doldurma
 if target_column and target_column in df_processed.columns and df_processed[target_column].isnull().any():
     print(f"Warning: Target column '{target_column}' has {df_processed[target_column].isnull().sum()} missing values.")
-    # Example: df_processed.dropna(subset=[target_column], inplace=True)
-    # Or impute if appropriate for the target variable
     if pd.api.types.is_numeric_dtype(df_processed[target_column]):
-        df_processed[target_column].fillna(df_processed[target_column].median(), inplace=True)
-        print(f"Filled missing target values in '{target_column}' with median.")
+        median_target_val = df_processed[target_column].median()
+        df_processed[target_column].fillna(median_target_val, inplace=True)
+        print(f"Filled missing target values in '{target_column}' with median ({median_target_val}).")
     else:
-        df_processed[target_column].fillna(df_processed[target_column].mode()[0], inplace=True)
-        print(f"Filled missing target values in '{target_column}' with mode.")
+        mode_target_val = df_processed[target_column].mode()[0]
+        df_processed[target_column].fillna(mode_target_val, inplace=True)
+        print(f"Filled missing target values in '{target_column}' with mode ('{mode_target_val}').")
     
 
-# Check if target_column is defined and exists in the DataFrame
+# X ve y'yi ayırma ve Label Encoding (gerekirse)
 if target_column and target_column in df_processed.columns:
     X = df_processed.drop(target_column, axis=1)
     y = df_processed[target_column]
 
     if problem_type == 'classification' and y.dtype == 'object':
-        label_encoder = LabelEncoder()
+        label_encoder = LabelEncoder() # Üst kapsamdaki label_encoder'a atama yapılıyor
         y = label_encoder.fit_transform(y)
-        y = pd.Series(y)  # Convert to Series for stratify compatibility
+        y = pd.Series(y)  # Stratify uyumluluğu için Series'e dönüştür
 
-        # Remove rare classes with <2 samples (stratify can't handle these)
+        # Nadir sınıfları kaldırma (stratify <2 örnekli sınıfları işleyemez)
         class_counts = y.value_counts()
         rare_classes = class_counts[class_counts < 2].index
         if len(rare_classes) > 0:
-            print(f"Removing classes with <2 samples: {list(rare_classes)}")
+            print(f"Removing classes with <2 samples (encoded): {list(rare_classes)}")
             mask = ~y.isin(rare_classes)
             X = X[mask]
             y = y[mask]
             y = y.reset_index(drop=True)
             X = X.reset_index(drop=True)
-
-        print(f"\nTarget variable '{target_column}' encoded. Classes: {list(label_encoder.classes_)}")
+        
+        if label_encoder: # label_encoder'ın fit edilip edilmediğini kontrol et
+             print(f"\nTarget variable '{target_column}' encoded. Encoded Classes (first 5 if many): {list(label_encoder.classes_)[:5]}")
 else:
     print(f"ERROR: Target column '{target_column}' not defined or not found. Model training will be skipped.")
     X, y = None, None
 
 # --- Preprocessing Pipelines ---
 if X is not None:
-    # Update feature lists based on X after dropping target
     numerical_features_in_X = X.select_dtypes(include=np.number).columns.tolist()
     categorical_features_in_X = X.select_dtypes(include='object').columns.tolist()
 
@@ -244,28 +247,37 @@ if X is not None:
     ])
     categorical_pipeline = Pipeline(steps=[
         ('imputer', SimpleImputer(strategy='most_frequent')),
-        ('onehot', OneHotEncoder(handle_unknown='ignore', drop='first', sparse_output=False))
+        ('onehot', OneHotEncoder(handle_unknown='ignore', drop='first', sparse_output=False)) # sparse_output=False
     ])
     preprocessor = ColumnTransformer(
         transformers=[
             ('num', numerical_pipeline, numerical_features_in_X),
             ('cat', categorical_pipeline, categorical_features_in_X)
         ],
-        remainder='passthrough'
+        remainder='passthrough' # Keep other columns (if any)
     )
     print("\nPreprocessor defined.")
 
 # --- 4. Splitting Data ---
 if X is not None and y is not None:
     print("\n--- 4. Splitting Data into Training and Test Sets ---")
-    stratify_y = y if problem_type == 'classification' and y.nunique() > 1 else None
+    stratify_y = None
+    if problem_type == 'classification' and y.nunique() > 1: # Stratify sadece birden fazla sınıf varsa ve problem classification ise mantıklı
+        # y'nin Series olduğundan emin ol (yukarıda yapıldı)
+        # Stratify için y'nin en az 2 örneği olan sınıflara sahip olması gerekir (yukarıda nadir sınıflar kaldırıldı)
+        if y.value_counts().min() >= 2 : # Eğer en az örnek sayısı olan sınıf bile 2 veya daha fazlaysa
+            stratify_y = y
+        else:
+            print("Warning: Not enough samples in some classes for stratification after rare class removal. Proceeding without stratification.")
+
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=stratify_y
     )
     print(f"Training set size: {X_train.shape[0]} samples, Test set size: {X_test.shape[0]} samples")
-# Türkçe Yorum: Eğer target_column tanımlı değilse veya bulunamazsa, X ve y None olarak ayarlanır.
+
 # --- 5. Model Training ---
-if X is not None and y is not None:
+best_model = None # best_model'ı burada ilklendir
+if X is not None and y is not None and 'X_train' in locals(): # X_train'in varlığını kontrol et
     print("\n--- 5. Defining, Training, and Optimizing Models ---")
     model_instance = None
     param_grid = {}
@@ -273,62 +285,92 @@ if X is not None and y is not None:
 
     if problem_type == 'classification':
         model_instance = RandomForestClassifier(random_state=42)
-        param_grid = {'model__n_estimators': [50, 100], 'model__max_depth': [10, 20, None], 'model__min_samples_leaf': [1, 2, 4]}
+        param_grid = {'model__n_estimators': [50, 100], 'model__max_depth': [10, None], 'model__min_samples_leaf': [1, 2]}
         scoring_metric = 'accuracy'
     elif problem_type == 'regression':
         model_instance = LinearRegression()
-        param_grid = {'model__fit_intercept': [True, False]} # Example
+        param_grid = {'model__fit_intercept': [True, False]} # Örnek
         scoring_metric = 'r2'
     else:
         print("Problem type not specified. Skipping model training.")
 
     if model_instance is not None:
-
         full_pipeline = Pipeline(steps=[('preprocessor', preprocessor), ('model', model_instance)])
-        cv_folds = 3 if X_train.shape[0] < 1000 else 5
-        grid_search = GridSearchCV(full_pipeline, param_grid, cv=cv_folds, scoring=scoring_metric, n_jobs=-1, verbose=1)
-        print(f"\nTraining {model_instance.__class__.__name__} with GridSearchCV...")
-        try:
-            grid_search.fit(X_train, y_train)
-            print(f"Best parameters for {model_instance.__class__.__name__}: {grid_search.best_params_}")
-            best_model = grid_search.best_estimator_
-        except Exception as e:
-            print(f"Error during GridSearchCV: {e}. Model training may have failed.")
-            best_model = None # Ensure best_model is None if training fails
+        cv_folds = 3 if X_train.shape[0] < 1000 else 5 # Daha küçük veri setleri için CV katlamasını azalt
+        
+        # Eğer çok az örnek varsa GridSearchCV'yi çalıştırma veya CV'yi ayarla
+        min_samples_for_cv = cv_folds * max(y_train.value_counts().min() if problem_type == 'classification' else 1, 1) # Sınıflandırma için en küçük sınıfın boyutu
+        
+        if X_train.shape[0] < 20 or (problem_type == 'classification' and y_train.nunique() > 0 and y_train.value_counts().min() < cv_folds) : # Az örnek veya CV için yetersiz sınıf örneği
+            print(f"Warning: Not enough samples or class diversity for GridSearchCV with cv={cv_folds}. Fitting model with default parameters.")
+            try:
+                best_model = full_pipeline.fit(X_train, y_train)
+                print(f"{model_instance.__class__.__name__} trained with default parameters.")
+            except Exception as e:
+                print(f"Error during model fitting with default parameters: {e}")
+                best_model = None
+        else:
+            grid_search = GridSearchCV(full_pipeline, param_grid, cv=cv_folds, scoring=scoring_metric, n_jobs=-1, verbose=1)
+            print(f"\nTraining {model_instance.__class__.__name__} with GridSearchCV...")
+            try:
+                grid_search.fit(X_train, y_train)
+                print(f"Best parameters for {model_instance.__class__.__name__}: {grid_search.best_params_}")
+                best_model = grid_search.best_estimator_
+            except Exception as e:
+                print(f"Error during GridSearchCV: {e}. Model training may have failed.")
+                best_model = None # Hata durumunda best_model'ı None yap
+else:
+     print("\nSkipping model training as data is not prepared (X, y, or X_train not available).")
+
 
 # --- 6. Model Evaluation ---
-if X is not None and y is not None and 'best_model' in locals() and best_model is not None:
+if X is not None and y is not None and 'X_test' in locals() and best_model is not None: # X_test'in varlığını ve best_model'ın None olmadığını kontrol et
     print("\n--- 6. Evaluating the Model ---")
     y_pred = best_model.predict(X_test)
     model_name_for_plot = best_model.named_steps['model'].__class__.__name__
 
     if problem_type == 'classification':
-        from sklearn.utils.multiclass import unique_labels
-
         accuracy = accuracy_score(y_test, y_pred)
         print(f"\nAccuracy: {accuracy:.4f}")
         print("\nClassification Report:")
 
-        # Yalnızca testte bulunan etiketleri ve isimleri al
-        labels_in_test = unique_labels(y_test, y_pred)
+        labels_in_test = unique_labels(y_test, y_pred) # y_test ve y_pred'de bulunan benzersiz etiketler (sayısal)
+        
+        target_names_display = [str(i) for i in labels_in_test] # Varsayılan: sayısal etiketler
+        if label_encoder is not None and hasattr(label_encoder, 'classes_'): # Eğer LabelEncoder kullanıldıysa
+            try:
+                # labels_in_test içindeki sayısal etiketleri orijinal metin etiketlerine dönüştür
+                target_names_display = list(label_encoder.inverse_transform(labels_in_test))
+            except ValueError:
+                print(f"Warning: Could not decode all labels in `labels_in_test` using label_encoder. "
+                      f"This might happen if y_pred contains labels not seen during training. "
+                      f"Using numerical labels for the report.")
+                # target_names_display [str(i) for i in labels_in_test] olarak kalır
+            except Exception as e_le:
+                print(f"Warning: An unexpected error occurred during label decoding: {e_le}. Using numerical labels.")
+                # target_names_display [str(i) for i in labels_in_test] olarak kalır
+
         print(classification_report(
             y_test, y_pred,
-            labels=labels_in_test,
-            target_names=[str(i) for i in labels_in_test],
+            labels=labels_in_test, # Raporlanacak etiketler (sayısal)
+            target_names=target_names_display, # Gösterilecek etiket isimleri (metin veya sayısal)
             zero_division=0
         ))
 
         print("\nConfusion Matrix:")
-        cm = confusion_matrix(y_test, y_pred, labels=labels_in_test)
-        plt.figure(figsize=(10, 7))
+        cm = confusion_matrix(y_test, y_pred, labels=labels_in_test) # labels_in_test'i burada da kullan
+        plt.figure(figsize=(max(8, len(target_names_display)*0.8), max(6, len(target_names_display)*0.6))) # Boyutu etiket sayısına göre ayarla
         sns.heatmap(cm, annot=True, fmt='d', cmap="Spectral_r",
-                    xticklabels=[str(i) for i in labels_in_test],
-                    yticklabels=[str(i) for i in labels_in_test],
+                    xticklabels=target_names_display,
+                    yticklabels=target_names_display,
                     annot_kws={"size": 10})
         title = f'Confusion Matrix for {model_name_for_plot}'
         plt.title(title, fontsize=15)
         plt.xlabel('Predicted Label', fontsize=12)
         plt.ylabel('True Label', fontsize=12)
+        plt.xticks(rotation=45, ha="right") # Uzun etiketler için
+        plt.yticks(rotation=0)
+        plt.tight_layout()
         save_current_plot(SAVE_DIRECTORY, title)
         plt.show()
 
@@ -353,4 +395,6 @@ if X is not None and y is not None and 'best_model' in locals() and best_model i
         save_current_plot(SAVE_DIRECTORY, title)
         plt.show()
 else:
-    print("\nSkipping model evaluation as model training was not completed, target not set, or 'best_model' not defined.")
+    print("\nSkipping model evaluation as model training was not completed, data not available, or 'best_model' is not defined/valid.")
+
+print("\n--- Script End ---")
